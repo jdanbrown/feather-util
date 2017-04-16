@@ -1,5 +1,6 @@
 Install feather:
 - https://github.com/wesm/feather/tree/master/python
+- https://github.com/wesm/feather/tree/master/R
 
 Convert a row-major tsv file to many tsv-split-cols files:
 - Straightforward to make this work with csv, but it's ~5x slower, so I didn't
