@@ -1,0 +1,39 @@
+#!/usr/bin/env python
+
+import csv
+import os
+import sys
+
+try:
+    [_, out_dir] = sys.argv
+except:
+    print('Usage: csv-split-cols <out-dir>', file=sys.stderr)
+    sys.exit(1)
+
+# Die if out_dir already exists, to avoid overwriting anything
+os.makedirs(out_dir)
+
+writer_files = None
+writers = None
+
+for row in csv.DictReader(sys.stdin):
+
+    # Open column-many out files on first row
+    if writer_files is None:
+        writer_files = []
+        writers = {}
+        for col in row.keys():
+            if col in writers:
+                raise Exception('Duplicate column name in input: %r' % col)
+            path = '%s/%s.csv' % (out_dir, col.replace('/', '_'))
+            print('Writing %s ...' % path, file=sys.stderr)
+            writer_files.append(open(path, 'w'))
+            writers[col] = csv.DictWriter(writer_files[-1], fieldnames=[col])
+            writers[col].writeheader()
+
+    # Split each row dict into column-many singleton dicts and write those to each out file
+    for k, v in row.items():
+        writers[k].writerow({k: v})
+
+for f in writer_files:
+    f.close()

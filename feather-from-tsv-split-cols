@@ -1,0 +1,47 @@
+#!/usr/bin/env python
+
+import csv
+import feather
+import pandas as pd
+import os
+import sys
+import time
+from datetime import timedelta
+
+try:
+    [_, in_dir, out_file] = sys.argv
+except:
+    print('Usage: feather-from-tsv-split-cols <in-dir> <out-file>', file=sys.stderr)
+    sys.exit(1)
+
+in_paths = ['%s/%s' % (in_dir.rstrip('/'), filename) for filename in os.listdir(in_dir)]
+in_paths_with_bytes = {path: os.stat(path).st_size for path in in_paths}
+bytes_total = sum(in_paths_with_bytes.values())
+bytes_so_far = 0
+start_time_s = time.time()
+
+if os.path.exists(out_file):
+    raise Exception('Refusing to overwrite out_file[%s]' % out_file)
+out_writer = feather.FeatherWriter(out_file)
+
+# TODO How to specify types between tsv and feather instead of letting pd.read_csv infer?
+for path, path_bytes in in_paths_with_bytes.items():
+    print('Loading path[%s]...' % path)
+    with open(path) as f:
+        col_name = next(f).rstrip('\r\n')
+    try:
+        col_data = pd.read_csv(path, sep='\t', header=0, skip_blank_lines=False, quoting=csv.QUOTE_NONE)[col_name]
+    except pd.io.common.EmptyDataError:
+        print('WARNING: Skipping empty column[%s]' % col_name)
+    else:
+        out_writer.write_array(col_name, col_data)
+    bytes_so_far += path_bytes
+    elapsed_s = time.time() - start_time_s
+    print('Loaded column[%s], progress[%.3f GB/%.3f GB], elapsed[%s], ETA[%s]' % (
+        col_name,
+        bytes_so_far / 1024**3, bytes_total / 1024**3,
+        timedelta(seconds=int(elapsed_s)),
+        timedelta(seconds=int((bytes_total - bytes_so_far) / (bytes_so_far / elapsed_s))),
+    ))
+
+out_writer.close()

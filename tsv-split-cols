@@ -1,0 +1,39 @@
+#!/usr/bin/env python
+
+import csv
+import os.path
+import sys
+
+try:
+    [_, out_dir] = sys.argv
+except:
+    print('Usage: tsv-split-cols <out-dir>', file=sys.stderr)
+    sys.exit(1)
+
+# Die if out_dir already exists, to avoid overwriting anything
+os.makedirs(out_dir)
+
+out_files = None
+for line in sys.stdin:
+    row = line.rstrip('\r\n').split('\t')
+
+    # Header row: open one out file per column
+    if out_files is None:
+        out_files = []
+        for col in row:
+            path = '%s/%s.tsv' % (out_dir, col.replace('/', '_'))
+            print('Writing %s ...' % path, file=sys.stderr)
+            if os.path.exists(path):
+                raise Exception('Duplicate column name[%s] in input' % col)
+            out_files.append(open(path, 'w'))
+            out_files[-1].write(col)
+            out_files[-1].write('\n')
+
+    # Data rows: fan out each field to its out file
+    else:
+        for f, field in zip(out_files, row):
+            f.write(field)
+            f.write('\n')
+
+for f in out_files:
+    f.close()
